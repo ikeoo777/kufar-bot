@@ -5,7 +5,8 @@ import time
 import requests
 
 # ================= НАСТРОЙКИ =================
-BOT_TOKEN = "9188876543:AAFF1_ttHme05Y_NPkiW4dJYEEmVhAMoPgY"
+import os
+TOKEN = os.getenv("9188876543:AAEOzCWu4CmyzIQpadRIFTuJ2q-Glctq4PQ")
 CHAT_ID = "7445170187"
 
 CHECK_INTERVAL = 10  # Проверка каждые 10 секунд
