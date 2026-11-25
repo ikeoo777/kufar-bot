@@ -1,11 +1,18 @@
 import html
 import json
 import os
+import sys
 import threading
 import time
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+# Отключаем буферизацию вывода, чтобы логи сразу появлялись в консоли Bothost
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+except Exception:
+    pass
 
 # ================= НАСТРОЙКИ =================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -270,6 +277,28 @@ def handle_command(text):
                 f"\n\n🚫 <b>Минус-слова ({len(BLACKLIST)}):</b>\n{bl_str}"
             )
 
+        elif cmd == "/debug":
+            url = "https://api.kufar.by/search-api/v2/search/rendered-paginated"
+            try:
+                r = session.get(
+                    url,
+                    params={"lang": "ru", "size": 5, "sort": "lst.d", "cat": "8040"},
+                    timeout=12,
+                )
+                ads_cnt = len(r.json().get("ads", [])) if r.ok else 0
+                send_telegram(
+                    ADMIN_ID,
+                    f"🔍 <b>Диагностика Kufar API:</b>\n"
+                    f"Статус: <b>{r.status_code}</b>\n"
+                    f"Объявлений: <b>{ads_cnt}</b>\n\n"
+                    f"<code>{html.escape(r.text[:300])}</code>"
+                )
+            except Exception as e:
+                send_telegram(
+                    ADMIN_ID,
+                    f"❌ Ошибка подключения к Kufar:\n<code>{html.escape(str(e))}</code>"
+                )
+
         elif cmd in ("/help", "/start"):
             send_telegram(
                 ADMIN_ID,
@@ -279,7 +308,8 @@ def handle_command(text):
                 "<code>/ban слово</code> — добавить минус-слово\n"
                 "<code>/unban слово</code> — убрать минус-слово\n"
                 "<code>/invite</code> — создать одноразовую ссылку для клиента\n"
-                "<code>/list</code> — текущие фильтры"
+                "<code>/list</code> — текущие фильтры\n"
+                "<code>/debug</code> — проверить ответ от Kufar API"
             )
 
 
