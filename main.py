@@ -24,9 +24,8 @@ VIP_CHANNEL_ID = os.getenv("VIP_CHANNEL_ID", ADMIN_ID)
 CHECK_INTERVAL = 12  # Пауза между циклами проверки (в секундах)
 
 # ID категорий Куфара:
-# 8040 — Мужская одежда
-# 8060 — Мужская обувь
-TARGET_CATEGORIES = ["8040", "8060"]
+# 19010 — Мужская одежда и обувь
+TARGET_CATEGORIES = ["19010"]
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE_DIR, "seen_ads.json")
@@ -282,7 +281,7 @@ def handle_command(text):
             try:
                 r = session.get(
                     url,
-                    params={"lang": "ru", "size": 5, "sort": "lst.d", "cat": "8040"},
+                    params={"lang": "ru", "size": 5, "sort": "lst.d", "cat": "19010"},
                     timeout=12,
                 )
                 ads_cnt = len(r.json().get("ads", [])) if r.ok else 0
