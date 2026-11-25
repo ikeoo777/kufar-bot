@@ -1,3 +1,4 @@
+import html
 import json
 import os
 import threading
@@ -161,7 +162,11 @@ def send_telegram(chat_id, text, image_url=None, button_url=None):
         if reply_markup:
             payload["reply_markup"] = reply_markup
 
-        session.post(url, data=payload, timeout=12)
+        resp = session.post(url, data=payload, timeout=12)
+        if not resp.ok:
+            print(f"Ошибка Telegram API ({resp.status_code}): {resp.text}")
+            if image_url:
+                send_telegram(chat_id, text, image_url=None, button_url=button_url)
     except Exception as e:
         print(f"Ошибка отправки в Telegram: {e}")
 
@@ -298,20 +303,26 @@ def fetch_latest_ads():
             print(f"Ошибка запроса категории {cat_id}: {e}")
         time.sleep(0.5)
 
+    print(f"[DEBUG] Получено от Kufar: {len(all_ads)} объявлений")
     return all_ads
 
 
-def match_ad(title, price):
-    """Проверяет бан-лист, совпадение бренда и лимит цены."""
-    title_lower = title.lower()
+def match_ad(ad, price):
+    """Проверяет заголовок + характеристики (бренд), бан-лист и лимит цены."""
+    title = ad.get("subject", "")
+    params_text = " ".join(
+        str(p.get("vl", "")) for p in ad.get("ad_parameters", []) if p.get("vl")
+    )
+    searchable = f"{title} {params_text}".lower()
+
     with lock:
         for bad in BLACKLIST:
-            if bad in title_lower:
+            if bad in searchable:
                 return None
         for brand, max_price in BRANDS.items():
-            if brand in title_lower:
+            if brand in searchable:
                 if max_price > 0 and price > max_price:
-                    return None
+                    continue
                 return brand
     return None
 
@@ -339,11 +350,11 @@ def parse_details(ad):
 
     parts = []
     if city:
-        parts.append(f"📍 Город: <b>{city}</b>")
+        parts.append(f"📍 Город: <b>{html.escape(city)}</b>")
     if size_val:
-        parts.append(f"📏 Размер: <b>{size_val}</b>")
+        parts.append(f"📏 Размер: <b>{html.escape(size_val)}</b>")
     if cond_val:
-        parts.append(f"🏷 Состояние: <b>{cond_val}</b>")
+        parts.append(f"🏷 Состояние: <b>{html.escape(cond_val)}</b>")
     return "\n".join(parts)
 
 
@@ -395,8 +406,9 @@ def main():
                 continue
 
             title = ad.get("subject", "")
+            safe_title = html.escape(title)
             price = parse_price(ad)
-            matched_brand = match_ad(title, price)
+            matched_brand = match_ad(ad, price)
             if not matched_brand:
                 continue
 
@@ -410,8 +422,8 @@ def main():
                 seen_ads[ad_id] = price
                 db_changed = True
                 msg = (
-                    f"🔥 <b>НАХОДКА • {matched_brand.upper()}</b>\n\n"
-                    f"📦 {title}\n"
+                    f"🔥 <b>НАХОДКА • {html.escape(matched_brand.upper())}</b>\n\n"
+                    f"📦 {safe_title}\n"
                     f"{details_block}"
                     f"💰 <b>{price_str}</b>"
                 )
@@ -425,8 +437,8 @@ def main():
                     seen_ads[ad_id] = price
                     db_changed = True
                     msg = (
-                        f"📉 <b>СКИДКА • {matched_brand.upper()}</b>\n\n"
-                        f"📦 {title}\n"
+                        f"📉 <b>СКИДКА • {html.escape(matched_brand.upper())}</b>\n\n"
+                        f"📦 {safe_title}\n"
                         f"{details_block}"
                         f"💸 Было: <s>{old_price:.2f} BYN</s>\n"
                         f"💰 Стало: <b>{price_str}</b> (-{diff:.2f} BYN)"
